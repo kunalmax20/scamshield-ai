@@ -7,8 +7,8 @@ export class AIService {
       return this.generateFallbackAnalysis(text, ruleResults, 'AI API key not configured.');
     }
 
-    // List of Gemini models to try in sequence for resilience against free-tier rate limits
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    // High-availability model list for Google Gemini API
+    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
 
     for (const modelName of modelsToTry) {
       try {
@@ -60,7 +60,7 @@ Expected JSON Structure:
       }
     }
 
-    console.warn('[AIService] All Gemini models hit free-tier rate limits. Using intelligent Rule Engine fallback.');
+    console.warn('[AIService] All Gemini models rate limited. Using intelligent Rule Engine fallback.');
     return this.generateFallbackAnalysis(text, ruleResults, 'All Gemini AI models rate limited.');
   }
 
