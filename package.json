@@ -4,7 +4,7 @@
   "description": "AI-Powered Scam, Phishing, Fraud & Malicious Message Detection Platform",
   "private": true,
   "scripts": {
-    "build": "cd server && npm install --include=dev && cd ../client && npm install --include=dev && npm run build",
+    "build": "cd client && npm install --include=dev && npm run build && mkdir -p ../server/public && cp -r dist/* ../server/public && cd ../server && npm install --include=dev",
     "start": "cd server && npm start",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",

@@ -24,15 +24,7 @@ const app = express();
 // Hardened Helmet Security Headers
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
-        connectSrc: ["'self'"]
-      }
-    },
+    contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     frameguard: { action: 'deny' }
   })
@@ -41,7 +33,7 @@ app.use(
 // CORS Policy
 app.use(
   cors({
-    origin: config.clientUrl || '*',
+    origin: '*',
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -78,6 +70,7 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Static Client Serving Fallback Paths
 const possibleDistPaths = [
+  path.join(__dirname, 'public'),
   path.join(__dirname, '../client/dist'),
   path.join(process.cwd(), 'client/dist'),
   path.join(process.cwd(), '../client/dist')
@@ -99,7 +92,7 @@ if (activeDistPath) {
   console.warn('[Deployment Warning] No compiled client/dist directory found. Serving API only.');
 }
 
-// 404 Handler for unhandled API routes or when dist is missing
+// 404 Handler for unhandled API routes
 app.use((req, res) => {
   res.status(404).json({
     success: false,
