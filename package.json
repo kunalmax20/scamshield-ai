@@ -1,0 +1,24 @@
+{
+  "name": "scamshield-ai",
+  "version": "1.0.0",
+  "description": "AI-Powered Scam, Phishing, Fraud & Malicious Message Detection Platform",
+  "private": true,
+  "scripts": {
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "benchmark": "cd server && npm run benchmark"
+  },
+  "keywords": [
+    "cybersecurity",
+    "ai",
+    "scam-detection",
+    "phishing-detection",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "ScamShield AI Team",
+  "license": "MIT"
+}
