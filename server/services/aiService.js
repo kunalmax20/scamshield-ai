@@ -7,15 +7,11 @@ export class AIService {
       return this.generateFallbackAnalysis(text, ruleResults, 'AI API key not configured.');
     }
 
-    // High-availability model list for Google Gemini API
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'];
+    try {
+      const genAI = new GoogleGenerativeAI(config.aiApiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
-    for (const modelName of modelsToTry) {
-      try {
-        const genAI = new GoogleGenerativeAI(config.aiApiKey);
-        const model = genAI.getGenerativeModel({ model: modelName });
-
-        const prompt = `
+      const prompt = `
 You are ScamShield AI, an expert cybersecurity threat analyst specializing in digital fraud, phishing, banking scams, UPI fraud, electricity bill scams, digital arrest threats, and social engineering attacks (natively fluent in English, Hindi Devanagari, and Hinglish transliterated text).
 
 Analyze the following message for potential scam indicators.
@@ -42,26 +38,23 @@ Expected JSON Structure:
 }
 `;
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text().trim();
-        const cleanJsonText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsedData = JSON.parse(cleanJsonText);
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text().trim();
+      const cleanJsonText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsedData = JSON.parse(cleanJsonText);
 
-        return {
-          isScam: Boolean(parsedData.isScam),
-          riskScore: Math.min(100, Math.max(0, Number(parsedData.riskScore) || ruleResults.ruleScore || 0)),
-          category: parsedData.category || ruleResults.suggestedCategory || 'OTHER',
-          signals: Array.isArray(parsedData.signals) ? parsedData.signals : ruleResults.signals || [],
-          explanation: parsedData.explanation || 'Analyzed message for psychological urgency and credential requests.',
-          recommendation: parsedData.recommendation || 'Do not click external links or share OTPs and financial details.'
-        };
-      } catch (err) {
-        console.warn(`[AIService] Model ${modelName} failed (${err.message}). Trying next fallback model...`);
-      }
+      return {
+        isScam: Boolean(parsedData.isScam),
+        riskScore: Math.min(100, Math.max(0, Number(parsedData.riskScore) || ruleResults.ruleScore || 0)),
+        category: parsedData.category || ruleResults.suggestedCategory || 'OTHER',
+        signals: Array.isArray(parsedData.signals) ? parsedData.signals : ruleResults.signals || [],
+        explanation: parsedData.explanation || 'Analyzed message for psychological urgency and credential requests.',
+        recommendation: parsedData.recommendation || 'Do not click external links or share OTPs and financial details.'
+      };
+    } catch (err) {
+      console.warn(`[AIService] Gemini AI generation failed (${err.message}). Using Rule Engine fallback.`);
+      return this.generateFallbackAnalysis(text, ruleResults, err.message);
     }
-
-    console.warn('[AIService] All Gemini models rate limited. Using intelligent Rule Engine fallback.');
-    return this.generateFallbackAnalysis(text, ruleResults, 'All Gemini AI models rate limited.');
   }
 
   static generateFallbackAnalysis(text, ruleResults = {}, reason = '') {
