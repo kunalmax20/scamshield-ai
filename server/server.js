@@ -41,7 +41,7 @@ app.use(
 // CORS Policy
 app.use(
   cors({
-    origin: config.clientUrl,
+    origin: config.clientUrl || '*',
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -76,21 +76,30 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
-// Static Client Serving in Production Mode or when dist exists
-const clientDistPath = path.join(__dirname, '../client/dist');
-if (fs.existsSync(clientDistPath)) {
-  console.log(`[Deployment] Serving compiled static frontend assets from ${clientDistPath}`);
-  app.use(express.static(clientDistPath));
+// Static Client Serving Fallback Paths
+const possibleDistPaths = [
+  path.join(__dirname, '../client/dist'),
+  path.join(process.cwd(), 'client/dist'),
+  path.join(process.cwd(), '../client/dist')
+];
+
+let activeDistPath = possibleDistPaths.find((p) => fs.existsSync(p));
+
+if (activeDistPath) {
+  console.log(`[Deployment] Serving compiled static frontend assets from ${activeDistPath}`);
+  app.use(express.static(activeDistPath));
 
   app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api')) {
       return next();
     }
-    res.sendFile(path.join(clientDistPath, 'index.html'));
+    res.sendFile(path.join(activeDistPath, 'index.html'));
   });
+} else {
+  console.warn('[Deployment Warning] No compiled client/dist directory found. Serving API only.');
 }
 
-// 404 Handler for API routes
+// 404 Handler for unhandled API routes or when dist is missing
 app.use((req, res) => {
   res.status(404).json({
     success: false,
