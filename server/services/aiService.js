@@ -3,12 +3,82 @@ import { config } from '../config/env.js';
 
 export class AIService {
   static async analyzeText(text, ruleResults = {}) {
-    if (!config.aiApiKey || config.aiApiKey === 'your_gemini_api_key_here') {
+    const apiKey = config.aiApiKey;
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
       return this.generateFallbackAnalysis(text, ruleResults, 'AI API key not configured.');
     }
 
+    // 1. Experiential Labs Provider Integration (xpl_ keys)
+    if (apiKey.startsWith('xpl_')) {
+      try {
+        const prompt = `
+You are ScamShield AI, an expert cybersecurity threat analyst specializing in digital fraud, phishing, banking scams, UPI fraud, electricity bill scams, digital arrest threats, and social engineering attacks (natively fluent in English, Hindi Devanagari, and Hinglish transliterated text).
+
+Analyze the following message for potential scam indicators.
+
+MESSAGE TO ANALYZE:
+"${text}"
+
+DETERMINISTIC SIGNALS ALREADY DETECTED:
+- Rule Score: ${ruleResults.ruleScore || 0}
+- Extracted URLs: ${JSON.stringify(ruleResults.extractedUrls || [])}
+- Detected Patterns: ${JSON.stringify(ruleResults.signals || [])}
+
+INSTRUCTIONS:
+Return a strictly formatted JSON object with NO markdown codeblock formatting and NO backticks.
+
+Expected JSON Structure:
+{
+  "isScam": boolean,
+  "riskScore": number (0 to 100),
+  "category": "BANKING_SCAM" | "PHISHING" | "UPI_SCAM" | "OTP_SCAM" | "JOB_SCAM" | "LOTTERY_SCAM" | "DELIVERY_SCAM" | "INVESTMENT_SCAM" | "GOVERNMENT_IMPERSONATION" | "TECH_SUPPORT_SCAM" | "ROMANCE_SCAM" | "ACCOUNT_TAKEOVER" | "OTHER",
+  "signals": [string array of 2 to 5 specific suspicious indicators],
+  "explanation": "Clear 2-3 sentence cybersecurity explanation of WHY this is suspicious or safe.",
+  "recommendation": "Clear actionable safety advice on WHAT the user should do next."
+}
+`;
+
+        const response = await fetch('https://api.experientiallabs.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-5.6-luna',
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+
+        const resData = await response.json();
+
+        if (resData.error) {
+          console.warn(`[AIService] Experiential Labs API Error: ${resData.error.message || JSON.stringify(resData.error)}`);
+          return this.generateFallbackAnalysis(text, ruleResults, resData.error.message || 'Experiential Labs quota limit');
+        }
+
+        const content = resData.choices?.[0]?.message?.content?.trim();
+        if (content) {
+          const cleanJsonText = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsedData = JSON.parse(cleanJsonText);
+          return {
+            isScam: Boolean(parsedData.isScam),
+            riskScore: Math.min(100, Math.max(0, Number(parsedData.riskScore) || ruleResults.ruleScore || 0)),
+            category: parsedData.category || ruleResults.suggestedCategory || 'OTHER',
+            signals: Array.isArray(parsedData.signals) ? parsedData.signals : ruleResults.signals || [],
+            explanation: parsedData.explanation || 'Analyzed message for psychological urgency and credential requests.',
+            recommendation: parsedData.recommendation || 'Do not click external links or share OTPs and financial details.'
+          };
+        }
+      } catch (err) {
+        console.warn(`[AIService] Experiential Labs request failed (${err.message}). Using Rule Engine fallback.`);
+        return this.generateFallbackAnalysis(text, ruleResults, err.message);
+      }
+    }
+
+    // 2. Google Gemini API Integration (AIzaSy... keys)
     try {
-      const genAI = new GoogleGenerativeAI(config.aiApiKey);
+      const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
 
       const prompt = `
